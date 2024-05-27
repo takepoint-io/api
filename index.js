@@ -25,7 +25,7 @@ app.get('/gameState', (req, res) => {
 app.post('/find_instances', (req, res) => {
     res.type('application/json');
     res.status(200);
-    res.send(JSON.stringify(serverInfo));
+    res.send(JSON.stringify(servers.map(server => server.data)));
 });
 
 app.post('/register_instance', (req, res) => {
