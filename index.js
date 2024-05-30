@@ -5,6 +5,14 @@ const cors = require('cors');
 const Server = require("./server");
 const port = 8080;
 let servers = [];
+let gameState = {
+    "Hours played" : "137,510.00",
+    "0": {"username" : "vxxxv", "score" : 28273},
+    "1": {"username" : "Kawmi", "score" : 27028},
+    "2": {"username" : "Starboy", "score" : 26709},
+    "3": {"username" : "Newkawasaki", "score" : 26558},
+    "4": {"username" : "davizin", "score" : 25384}
+}
 
 app.use(express.json());
 app.use(cors({ origin: "*" }));
@@ -19,7 +27,7 @@ app.get('/', (req, res) => {
 
 app.get('/gameState', (req, res) => {
     res.status(200);
-    res.send("No game state available.");
+    res.send(JSON.stringify(gameState));
 });
 
 app.post('/find_instances', (req, res) => {
