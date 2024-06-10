@@ -5,13 +5,24 @@ const cors = require('cors');
 const Server = require("./server");
 const port = 8080;
 let servers = [];
-let gameState = {
-    "Hours played" : "137,510.00",
-    "0": {"username" : "vxxxv", "score" : 28273},
-    "1": {"username" : "Kawmi", "score" : 27028},
-    "2": {"username" : "Starboy", "score" : 26709},
-    "3": {"username" : "Newkawasaki", "score" : 26558},
-    "4": {"username" : "davizin", "score" : 25384}
+//TODO: In the future, we select highscores and fun facts from database
+let funFacts = [
+    ["Bug fixes", "1,000"],
+    ["Sample text", "1"]
+];
+let leaderboard = [
+    {"username" : "placeholder", "score" : 1337}
+];
+
+function createGameState() {
+    let funFact = funFacts[Math.floor(Math.random() * funFacts.length)];
+    let gameState = {
+        [funFact[0]]: funFact[1]
+    };
+    for (let i = 0; i < leaderboard.length; i++) {
+        gameState[i.toString()] = leaderboard[i];
+    }
+    return gameState;
 }
 
 app.use(express.json());
@@ -27,7 +38,7 @@ app.get('/', (req, res) => {
 
 app.get('/gameState', (req, res) => {
     res.status(200);
-    res.send(JSON.stringify(gameState));
+    res.send(JSON.stringify(createGameState()));
 });
 
 app.post('/find_instances', (req, res) => {
