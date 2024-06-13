@@ -18,7 +18,8 @@ class Cloudflare {
         )
         let { data } = resp;
         if (data.success) {
-            let subdomain = data.result.find(e => e.type == "A" && e.content == ipv4);
+            let subdomain = data.result.find(e => e.type == "A" && e.content == ipv4 && !e.name.startsWith("api"));
+            if (!subdomain) return "";
             return subdomain.name;
         } else return "";
     }

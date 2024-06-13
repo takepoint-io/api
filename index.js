@@ -11,6 +11,7 @@ const CFWorker = new Cloudflare(process.env.cloudflareZoneID, process.env.cloudf
 const port = 8080;
 const countryToContinent = {
     "US": "North America",
+    "CA": "North America",
     "DE": "Europe"
 };
 let servers = [];
