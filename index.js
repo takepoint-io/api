@@ -45,7 +45,7 @@ async function getServerAttrs(ipv4) {
     }
     let attrs = {
         region: countryToContinent[data.countryCode],
-        city: data.city,
+        city: data.city.split(" ")[0],
         url: accessURL
     };
     return attrs;
