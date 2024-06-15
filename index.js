@@ -9,10 +9,17 @@ const app = express();
 const CFWorker = new Cloudflare(process.env.cloudflareZoneID, process.env.cloudflareAPIKey, process.env.cloudflareAPIEmail);
 
 const port = 8080;
-const countryToContinent = {
+const countryToRegion = {
     "US": "North America",
     "CA": "North America",
-    "DE": "Europe"
+    "MX": "North America",
+    "DE": "Europe",
+    "PL": "Europe",
+    "NL": "Europe",
+    "SE": "Europe",
+    "IN": "India",
+    "JP": "Japan",
+    "AU": "Australia"
 };
 let servers = [];
 //TODO: In the future, we select highscores and fun facts from database
@@ -44,7 +51,7 @@ async function getServerAttrs(ipv4) {
         if (test != "") accessURL = test;
     }
     let attrs = {
-        region: countryToContinent[data.countryCode],
+        region: countryToRegion[data.countryCode],
         city: data.city.split(" ")[0],
         url: accessURL
     };
