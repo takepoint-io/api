@@ -80,6 +80,10 @@ app.post('/register_instance', async (req, res) => {
     if (!server) {
         if (!serverInfo.override) {
             let sourceIP = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+            if (sourceIP.includes(":")) {
+                let resp = await axios.get("https://api.ipify.org");
+                sourceIP = resp.data;
+            }
             let attrs = await getServerAttrs(sourceIP);
             serverInfo.data.region = attrs.region;
             serverInfo.data.city = attrs.city;
