@@ -71,6 +71,7 @@ const templates = {
                 turret: 0,
                 sd: 0
             },
+            usernameLower: data.username.toLowerCase(),
             username: data.username,
             email: data.email,
             passwordHash: data.passwordHash

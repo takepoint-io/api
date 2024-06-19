@@ -4,6 +4,7 @@ const { MongoClient, ServerApiVersion } = require("mongodb");
 const cors = require('cors');
 const express = require('express');
 const sha256 = require('js-sha256').sha256;
+const crypto = require('crypto');
 const Server = require("./server");
 const Cloudflare = require('./cloudflare');
 const { playerTemplate } = require('./mongoTemplates');
@@ -18,7 +19,10 @@ const mongoDB = new MongoClient(process.env.mongoConnectionStr, {
     }
 });
 const db = mongoDB.db("takepoint");
-const players = db.collection("players");
+const playersColl = db.collection("players");
+const sessionsColl = db.collection("sessions");
+const sessions = new Map();
+const sessionTimeout = 60;
 
 const port = 8080;
 const countryToRegion = {
@@ -54,34 +58,63 @@ function createGameState() {
     return gameState;
 }
 
+async function generateSession(username) {
+    let sessionCookie = generateCookie();
+    sessions.set(username, { lastRefresh: Date.now(), cookie: sessionCookie });
+    let res = await queryDb({ type: "setSession", data: { username: username, cookie: sessionCookie } })
+    if (!res.error) return true;
+    else return false;
+}
+
+function generateCookie() {
+    return crypto.randomBytes(64).toString('hex');
+}
+
 async function queryDb(query) {
+    let data = query.data;
     switch (query.type) {
         case "register": {
-            let data = query.data;
-            let resp = await players.find({ 
-                $or: [{ username: data.username }, { email: data.email }]
+            let resp = await playersColl.find({ 
+                $or: [{ usernameLower: data.username.toLowerCase() }, { email: data.email }]
             }).toArray();
             if (resp.length > 0) {
-                if (resp[0].username == data.username) {
+                if (resp[0].usernameLower == data.username.toLowerCase()) {
                     return { error: true, desc: "A player with that username already exists!", code: 1 };
                 } else if (resp[0].email == data.email) {
                     return { error: true, desc: "A player with that email already exists!", code: 2 };
                 }
                 return { error: true, desc: "Generic" };
             }
-            let result = await players.insertOne(playerTemplate(data));
-            return { error: false };
+            await playersColl.insertOne(playerTemplate(data));
+            return { error: false, username: data.username };
         }
         case "login": {
-            let data = query.data;
-            let resp = await players.find({
+            let resp = await playersColl.find({
                 $and: [
-                    { $or: [ { username: data.usernameEmail }, { email: data.usernameEmail } ] }, 
+                    { $or: [ { usernameLower: data.usernameEmail.toLowerCase() }, { email: data.usernameEmail.toLowerCase() } ] }, 
                     { passwordHash: data.passwordHash }
                 ]
             }).toArray();
             if (resp.length) return { error: false, username: resp[0].username };
             else return { error: true, desc: "The provided username and password does not exist in our database.", code: 0 };
+        }
+        case "setSession": {
+            let res = await sessionsColl.updateOne(
+                { username: data.username },
+                { $set: { 
+                    cookie: data.cookie
+                } },
+                { upsert: true }
+            )
+            if (res.modifiedCount) return { error: false };
+            else return { error: true };
+        }
+        case "resumeSession": {
+            let res = await sessionsColl.find({
+                cookie: data.cookie
+            }).toArray();
+            if (res.length) return { error: false, username: res[0].username };
+            else return { error: true };
         }
     }
 }
@@ -163,12 +196,16 @@ app.post('/auth/*', async (req, res) => {
                 passwordHash: sha256(body.data.password)
             }
         });
+        if (!resp.error) {
+            let res = await generateSession(resp.username);
+            if (res) resp.cookie = sessions.get(resp.username).cookie;
+        }
         res.write(JSON.stringify(resp));
         res.status(200);
         res.end();
         return;
-    } 
-    if (loc == "login") {
+    }
+    else if (loc == "login") {
         let resp = await queryDb({ 
             type: "login", 
             data: {
@@ -176,13 +213,55 @@ app.post('/auth/*', async (req, res) => {
                 passwordHash: sha256(body.data.password)
             }
         });
+        if (!resp.error) {
+            if (sessions.has(resp.username)) {
+                resp.error = true;
+                resp.desc = "You are already logged in. Try again in 60 seconds.";
+                resp.code = 0;
+            } else {
+                let res = await generateSession(resp.username);
+                if (res) resp.cookie = sessions.get(resp.username).cookie;
+            }
+        }
         res.write(JSON.stringify(resp));
         res.status(200);
         res.end();
-        return;
+    }
+    else if (loc == "loginCookie") {
+        let resp = await queryDb({ 
+            type: "resumeSession", 
+            data: {
+                cookie: body.data.cookie
+            }
+        });
+        if (!resp.error) {
+            if (sessions.has(resp.username)) {
+                resp.error = true;
+            } else {
+                let res = await generateSession(resp.username);
+                if (res) resp.cookie = sessions.get(resp.username).cookie;
+            }
+        }
+        res.write(JSON.stringify(resp));
+        res.status(200);
+        res.end();
+    }
+    else if (loc == "logout") {
+        sessions.delete(body.data.username);
+        res.status(200);
+        res.end();
     }
 });
 
-setInterval(() => {
-    servers = servers.filter(server => Date.now() - server.refreshedAt < 30 * 1000);
-}, 3000)
+const loops = {
+    clearInactiveServers: setInterval(() => {
+        servers = servers.filter(server => Date.now() - server.refreshedAt < 30 * 1000);
+    }, 3000),
+    clearInactiveSessions: setInterval(() => {
+        for (let [username, sessionInfo] of sessions) {
+            if (Date.now() - sessionInfo.lastRefresh > sessionTimeout * 1000) {
+                sessions.delete(username);
+            }
+        }
+    }, 10000)
+};
