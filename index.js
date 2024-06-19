@@ -1,12 +1,24 @@
 require('dotenv').config();
 const axios = require('axios');
+const { MongoClient, ServerApiVersion } = require("mongodb");
 const cors = require('cors');
 const express = require('express');
+const sha256 = require('js-sha256').sha256;
 const Server = require("./server");
 const Cloudflare = require('./cloudflare');
+const { playerTemplate } = require('./mongoTemplates');
 
 const app = express();
 const CFWorker = new Cloudflare(process.env.cloudflareZoneID, process.env.cloudflareAPIKey, process.env.cloudflareAPIEmail);
+const mongoDB = new MongoClient(process.env.mongoConnectionStr, {
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
+});
+const db = mongoDB.db("takepoint");
+const players = db.collection("players");
 
 const port = 8080;
 const countryToRegion = {
@@ -40,6 +52,38 @@ function createGameState() {
         gameState[i.toString()] = leaderboard[i];
     }
     return gameState;
+}
+
+async function queryDb(query) {
+    switch (query.type) {
+        case "register": {
+            let data = query.data;
+            let resp = await players.find({ 
+                $or: [{ username: data.username }, { email: data.email }]
+            }).toArray();
+            if (resp.length > 0) {
+                if (resp[0].username == data.username) {
+                    return { error: true, desc: "A player with that username already exists!", code: 1 };
+                } else if (resp[0].email == data.email) {
+                    return { error: true, desc: "A player with that email already exists!", code: 2 };
+                }
+                return { error: true, desc: "Generic" };
+            }
+            let result = await players.insertOne(playerTemplate(data));
+            return { error: false };
+        }
+        case "login": {
+            let data = query.data;
+            let resp = await players.find({
+                $and: [
+                    { $or: [ { username: data.usernameEmail }, { email: data.usernameEmail } ] }, 
+                    { passwordHash: data.passwordHash }
+                ]
+            }).toArray();
+            if (resp.length) return { error: false, username: resp[0].username };
+            else return { error: true, desc: "The provided username and password does not exist in our database.", code: 0 };
+        }
+    }
 }
 
 async function getServerAttrs(ipv4) {
@@ -105,6 +149,39 @@ app.post('/register_instance', async (req, res) => {
     res.status(200);
     res.end();
 })
+
+app.post('/auth/*', async (req, res) => {
+    let body = req.body;
+    if (body.auth.registerKey != process.env.registerKey || !servers.find(e => e.id == body.auth.id)) return;
+    let loc = req.url.split("/")[2];
+    if (loc == "register") {
+        let resp = await queryDb({ 
+            type: "register", 
+            data: {
+                username: body.data.username,
+                email: body.data.email,
+                passwordHash: sha256(body.data.password)
+            }
+        });
+        res.write(JSON.stringify(resp));
+        res.status(200);
+        res.end();
+        return;
+    } 
+    if (loc == "login") {
+        let resp = await queryDb({ 
+            type: "login", 
+            data: {
+                usernameEmail: body.data.usernameEmail,
+                passwordHash: sha256(body.data.password)
+            }
+        });
+        res.write(JSON.stringify(resp));
+        res.status(200);
+        res.end();
+        return;
+    }
+});
 
 setInterval(() => {
     servers = servers.filter(server => Date.now() - server.refreshedAt < 30 * 1000);
