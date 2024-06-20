@@ -47,9 +47,17 @@ let funFacts = [
     ["Bug fixes", "1,000"],
     ["Sample text", "1"]
 ];
-let leaderboard = [
-    {"username" : "placeholder", "score" : 1337}
-];
+let leaderboard = [];
+let leaderboardDate = getCurrentDate(-5);
+
+function getCurrentDate(offset) {
+    let d = new Date();
+    let localTime = d.getTime();
+    let localOffset = d.getTimezoneOffset() * 60000;
+    let utc = localTime + localOffset;
+    let actualTime = utc + (3600000 * offset);
+    return new Date(actualTime).getDate();
+}
 
 function createGameState() {
     let funFact = funFacts[Math.floor(Math.random() * funFacts.length)];
@@ -262,6 +270,11 @@ app.post('/gameStats', async (req, res) => {
     if (!isServerAuthorized(body.auth.registerKey) || !servers.find(e => e.id == body.auth.id)) return;
     let stats = JSON.parse(body.data.stats);
     let username = body.data.username;
+    for (let i = 0; i < 5; i++) {
+        if (!leaderboard[i] || stats.score > leaderboard[i].score) {
+            leaderboard[i] = { username: username, score: stats.score };
+        }
+    }
     await queryDb({
         type: "insertGame",
         data: {
@@ -368,5 +381,11 @@ const loops = {
                 sessions.delete(username);
             }
         }
-    }, 10000)
+    }, 10000),
+    resetDailyLB: setInterval(() => {
+        if (getCurrentDate(-5) != leaderboardDate) {
+            leaderboard = [];
+            leaderboardDate = getCurrentDate();
+        }
+    }, 5000)
 };
