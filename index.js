@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const Server = require("./server");
 const Cloudflare = require('./cloudflare');
 const { playerTemplate } = require('./mongoTemplates');
+const badWords = require('./badwords');
 
 const app = express();
 const CFWorker = new Cloudflare(process.env.cloudflareZoneID, process.env.cloudflareAPIKey, process.env.cloudflareAPIEmail);
@@ -106,6 +107,11 @@ async function queryDb(query) {
             }).toArray();
             if (isReserved.length > 0) {
                 return { error: true, desc: 'That username is reserved as it belongs to a notable player. Check the Discord for help.', code: 1 };
+            }
+            for (word in badWords) {
+                if (data.username.toLowerCase().includes(word)) {
+                    return { error: true, desc: 'Username may include profanity. Check the Discord for help.', code: 1 };
+                }
             }
             await collections.players.insertOne(playerTemplate(data));
             return { error: false, username: data.username };
