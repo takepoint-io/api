@@ -58,6 +58,10 @@ function createGameState() {
     return gameState;
 }
 
+function isServerAuthorized(key) {
+    return key == process.env.registerKey;
+}
+
 async function generateSession(username) {
     let sessionCookie = generateCookie();
     sessions.set(username, { lastRefresh: Date.now(), cookie: sessionCookie });
@@ -159,7 +163,7 @@ app.post('/find_instances', (req, res) => {
 
 app.post('/register_instance', async (req, res) => {
     let serverInfo = req.body;
-    if (serverInfo.auth.registerKey != process.env.registerKey) return;
+    if (!isServerAuthorized(serverInfo.auth.registerKey)) return;
     let server = servers.find(e => e.id == serverInfo.auth.id);
     if (!server) {
         if (!serverInfo.override) {
@@ -185,9 +189,19 @@ app.post('/register_instance', async (req, res) => {
 
 app.post('/auth/*', async (req, res) => {
     let body = req.body;
-    if (body.auth.registerKey != process.env.registerKey || !servers.find(e => e.id == body.auth.id)) return;
+    if (!isServerAuthorized(body.auth.registerKey) || !servers.find(e => e.id == body.auth.id)) return;
     let loc = req.url.split("/")[2];
-    if (loc == "register") {
+    if (loc == "updateSessions") {
+        let sessionsOnServer = JSON.parse(body.data.sessions);
+        for (let username of sessionsOnServer) {
+            if (sessions.has(username)) {
+                let session = sessions.get(username);
+                session.lastRefresh = Date.now();
+            }
+            else generateSession(username);
+        }
+    }
+    else if (loc == "register") {
         let resp = await queryDb({ 
             type: "register", 
             data: {
