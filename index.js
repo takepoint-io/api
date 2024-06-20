@@ -273,6 +273,7 @@ app.post('/gameStats', async (req, res) => {
     for (let i = 0; i < 5; i++) {
         if (!leaderboard[i] || stats.score > leaderboard[i].score) {
             leaderboard[i] = { username: username, score: stats.score };
+            break;
         }
     }
     await queryDb({
