@@ -19,6 +19,7 @@ const mongoDB = new MongoClient(process.env.mongoConnectionStr, {
     }
 });
 const db = mongoDB.db("takepoint");
+const reservedUsersColl = db.collection("reservedUsers");
 const playersColl = db.collection("players");
 const sessionsColl = db.collection("sessions");
 const sessions = new Map();
@@ -88,6 +89,12 @@ async function queryDb(query) {
                     return { error: true, desc: "A player with that email already exists!", code: 2 };
                 }
                 return { error: true, desc: "Generic" };
+            }
+            let isReserved = await reservedUsersColl.find({
+                usernameLower: data.username.toLowerCase()
+            }).toArray();
+            if (isReserved.length > 0) {
+                return { error: true, desc: 'That username is reserved as it belongs to a notable player. Check the Discord for help.', code: 1 };
             }
             await playersColl.insertOne(playerTemplate(data));
             return { error: false, username: data.username };
