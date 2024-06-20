@@ -19,9 +19,12 @@ const mongoDB = new MongoClient(process.env.mongoConnectionStr, {
     }
 });
 const db = mongoDB.db("takepoint");
-const reservedUsersColl = db.collection("reservedUsers");
-const playersColl = db.collection("players");
-const sessionsColl = db.collection("sessions");
+const collections = {
+    reservedUsers: db.collection("reservedUsers"),
+    players: db.collection("players"),
+    sessions: db.collection("sessions"),
+    games: db.collection("games")
+};
 const sessions = new Map();
 const sessionTimeout = 60;
 
@@ -79,7 +82,7 @@ async function queryDb(query) {
     let data = query.data;
     switch (query.type) {
         case "register": {
-            let resp = await playersColl.find({ 
+            let resp = await collections.players.find({ 
                 $or: [{ usernameLower: data.username.toLowerCase() }, { email: data.email }]
             }).toArray();
             if (resp.length > 0) {
@@ -90,17 +93,17 @@ async function queryDb(query) {
                 }
                 return { error: true, desc: "Generic" };
             }
-            let isReserved = await reservedUsersColl.find({
+            let isReserved = await collections.reservedUsers.find({
                 usernameLower: data.username.toLowerCase()
             }).toArray();
             if (isReserved.length > 0) {
                 return { error: true, desc: 'That username is reserved as it belongs to a notable player. Check the Discord for help.', code: 1 };
             }
-            await playersColl.insertOne(playerTemplate(data));
+            await collections.players.insertOne(playerTemplate(data));
             return { error: false, username: data.username };
         }
         case "login": {
-            let resp = await playersColl.find({
+            let resp = await collections.players.find({
                 $and: [
                     { $or: [ { usernameLower: data.usernameEmail.toLowerCase() }, { email: data.usernameEmail.toLowerCase() } ] }, 
                     { passwordHash: data.passwordHash }
@@ -110,7 +113,7 @@ async function queryDb(query) {
             else return { error: true, desc: "The provided username and password does not exist in our database.", code: 0 };
         }
         case "setSession": {
-            let res = await sessionsColl.updateOne(
+            let res = await collections.sessions.updateOne(
                 { username: data.username },
                 { $set: { 
                     cookie: data.cookie
@@ -121,11 +124,71 @@ async function queryDb(query) {
             else return { error: true };
         }
         case "resumeSession": {
-            let res = await sessionsColl.find({
+            let res = await collections.sessions.find({
                 cookie: data.cookie
             }).toArray();
             if (res.length) return { error: false, username: res[0].username };
             else return { error: true };
+        }
+        case "insertGame": {
+            data.stats.username = data.username;
+            await collections.games.insertOne(data.stats);
+            return;
+        }
+        case "updateStats": {
+            let stats = data.stats;
+            let username = data.username;
+            let player = await collections.players.find({
+                usernameLower: username.toLowerCase()
+            }).toArray();
+            if (!player.length) return;
+            player = player[0];
+            let weaponList = ["pistol", "assault", "sniper", "shotgun"];
+            let perkList = ["barrier", "health", "gas", "frag", "turret", "sd"];
+            player.score += stats.score;
+            player.timePlayed += stats.timeAlive;
+            player.pointsTaken += stats.pointsTaken;
+            player.pointsNeutralized += stats.pointsNeutralized;
+            player.kills += stats.kills;
+            if (stats.kills > player.killstreak) player.killstreak = stats.kills;
+            player.deaths++;
+            player.shotsFired += stats.bulletsFired;
+            player.shotsHit += stats.bulletsHit;
+            player.damageDealt += stats.damageDealt;
+            player.distanceCovered += Math.round(stats.distanceCovered);
+            player.doubleKills += stats.doubleKills;
+            player.tripleKills += stats.tripleKills;
+            player.multiKills += stats.multiKills;
+            let pistol = player.weapons.pistol;
+            let pistolUpdates = stats.weapons[0];
+            pistol.kills += pistolUpdates.kills;
+            pistol.shotsFired += pistolUpdates.bulletsFired;
+            pistol.shotsHit += pistolUpdates.bulletsHit;
+            pistol.damageDealt += pistolUpdates.damageDealt;
+            if (stats.weaponChosenID) {;
+                let weaponStats = player.weapons[weaponList[stats.weaponChosenID]];
+                let id = stats.weaponChosenID;
+                weaponStats.kills += stats.weapons[id].kills;
+                weaponStats.shotsFired += stats.weapons[id].bulletsFired;
+                weaponStats.shotsHit += stats.weapons[id].bulletsHit;
+                weaponStats.damageDealt += stats.weapons[id].damageDealt++;
+                weaponStats.selected++;
+                weaponStats.timePlayed += Date.now() - stats.weaponChosenTime;
+                pistol.timePlayed += stats.weaponChosenTime - stats.spawnTime;
+            } else {
+                pistol.timePlayed += Date.now() - stats.spawnTime;
+            }
+            player.upgrades.speed += stats.upgrades.speed;
+            player.upgrades.reload += stats.upgrades.reload;
+            player.upgrades.mags += stats.upgrades.mags;
+            player.upgrades.view += stats.upgrades.view;
+            player.upgrades.heal += stats.upgrades.heal;
+            if (stats.perkID) player.perks[perkList[stats.perkID - 1]]++;
+            player.lastActive = Date.now();
+            await collections.players.replaceOne(
+                { username: username },
+                player
+            );
         }
     }
 }
@@ -192,7 +255,28 @@ app.post('/register_instance', async (req, res) => {
     }
     res.status(200);
     res.end();
-})
+});
+
+app.post('/gameStats', async (req, res) => {
+    let body = req.body;
+    if (!isServerAuthorized(body.auth.registerKey) || !servers.find(e => e.id == body.auth.id)) return;
+    let stats = JSON.parse(body.data.stats);
+    let username = body.data.username;
+    await queryDb({
+        type: "insertGame",
+        data: {
+            username, stats
+        }
+    });
+    await queryDb({
+        type: "updateStats",
+        data: {
+            username, stats
+        }
+    });
+    res.status(200);
+    res.end();
+});
 
 app.post('/auth/*', async (req, res) => {
     let body = req.body;

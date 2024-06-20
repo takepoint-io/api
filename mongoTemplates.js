@@ -14,6 +14,7 @@ const templates = {
             accuracy: 0,
             shotsFired: 0,
             shotsHit: 0,
+            damageDealt: 0,
             distanceCovered: 0,
             doubleKills: 0,
             tripleKills: 0,
