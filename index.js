@@ -272,7 +272,8 @@ app.post('/gameStats', async (req, res) => {
     let username = body.data.username;
     for (let i = 0; i < 5; i++) {
         if (!leaderboard[i] || stats.score > leaderboard[i].score) {
-            leaderboard[i] = { username: username, score: stats.score };
+            leaderboard.splice(i, 0, { username: username, score: stats.score });
+            if (leaderboard.length > 5) leaderboard.pop();
             break;
         }
     }
