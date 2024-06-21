@@ -171,6 +171,7 @@ async function queryDb(query) {
             player.kdr = parseFloat((player.kills / player.deaths).toFixed(2));
             player.shotsFired += stats.bulletsFired;
             player.shotsHit += stats.bulletsHit;
+            player.accuracy = parseFloat((player.shotsFired / player.shotsHit).toFixed(2));
             player.damageDealt += stats.damageDealt;
             player.distanceCovered += Math.round(stats.distanceCovered);
             player.doubleKills += stats.doubleKills;
@@ -281,6 +282,18 @@ app.post('/gameStats', async (req, res) => {
     let username = body.data.username;
     for (let i = 0; i < 5; i++) {
         if (!leaderboard[i] || stats.score > leaderboard[i].score) {
+            let shouldUpdateScore = true;
+            for (let j = 0; j < 5; j++) {
+                if (!leaderboard[j]) break;
+                if (leaderboard[j].username == username && stats.score > leaderboard[j].score) {
+                    leaderboard.splice(j, 1);
+                    break;
+                } else if (leaderboard[j].username == username) {
+                    shouldUpdateScore = false;
+                    break;
+                }
+            }
+            if (!shouldUpdateScore) break;
             leaderboard.splice(i, 0, { username: username, score: stats.score });
             if (leaderboard.length > 5) leaderboard.pop();
             break;
