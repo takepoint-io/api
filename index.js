@@ -19,7 +19,8 @@ const mongoDB = new MongoClient(process.env.mongoConnectionStr, {
         deprecationErrors: true,
     }
 });
-const db = mongoDB.db("takepoint");
+const whichDatabase = process.env.isDev == "yes" ? "takepoint-dev" : "takepoint";
+const db = mongoDB.db(whichDatabase);
 const collections = {
     reservedUsers: db.collection("reservedUsers"),
     players: db.collection("players"),
@@ -108,7 +109,7 @@ async function queryDb(query) {
             if (isReserved.length > 0) {
                 return { error: true, desc: 'That username is reserved as it belongs to a notable player. Check the Discord for help.', code: 1 };
             }
-            for (word in badWords) {
+            for (word of badWords) {
                 if (data.username.toLowerCase().includes(word)) {
                     return { error: true, desc: 'Username may include profanity. Check the Discord for help.', code: 1 };
                 }
@@ -161,11 +162,13 @@ async function queryDb(query) {
             let perkList = ["barrier", "health", "gas", "frag", "turret", "sd"];
             player.score += stats.score;
             player.timePlayed += stats.timeAlive;
+            player.spm = parseFloat((player.score / (player.timePlayed / 1000 / 60)).toFixed(2))
             player.pointsTaken += stats.pointsTaken;
             player.pointsNeutralized += stats.pointsNeutralized;
             player.kills += stats.kills;
             if (stats.kills > player.killstreak) player.killstreak = stats.kills;
             player.deaths++;
+            player.kdr = parseFloat((player.kills / player.deaths).toFixed(2));
             player.shotsFired += stats.bulletsFired;
             player.shotsHit += stats.bulletsHit;
             player.damageDealt += stats.damageDealt;
