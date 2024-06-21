@@ -171,7 +171,7 @@ async function queryDb(query) {
             player.kdr = parseFloat((player.kills / player.deaths).toFixed(2));
             player.shotsFired += stats.bulletsFired;
             player.shotsHit += stats.bulletsHit;
-            player.accuracy = parseFloat((player.shotsFired / player.shotsHit).toFixed(2));
+            player.accuracy = parseFloat((100 * player.shotsHit / player.shotsFired).toFixed(2));
             player.damageDealt += stats.damageDealt;
             player.distanceCovered += Math.round(stats.distanceCovered);
             player.doubleKills += stats.doubleKills;
@@ -189,6 +189,7 @@ async function queryDb(query) {
                 weaponStats.kills += stats.weapons[id].kills;
                 weaponStats.shotsFired += stats.weapons[id].bulletsFired;
                 weaponStats.shotsHit += stats.weapons[id].bulletsHit;
+                weaponStats.accuracy = parseFloat((100 * weaponStats.shotsHit / weaponStats.shotsFired).toFixed(2));
                 weaponStats.damageDealt += stats.weapons[id].damageDealt++;
                 weaponStats.selected++;
                 weaponStats.timePlayed += Date.now() - stats.weaponChosenTime;
