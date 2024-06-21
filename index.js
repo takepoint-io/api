@@ -281,7 +281,7 @@ app.post('/gameStats', async (req, res) => {
     if (!isServerAuthorized(body.auth.registerKey) || !servers.find(e => e.id == body.auth.id)) return;
     let stats = JSON.parse(body.data.stats);
     let username = body.data.username;
-    for (let i = 0; i < 5; i++) {
+    if (username != "N/A") for (let i = 0; i < 5; i++) {
         if (!leaderboard[i] || stats.score > leaderboard[i].score) {
             let shouldUpdateScore = true;
             for (let j = 0; j < 5; j++) {
@@ -306,7 +306,7 @@ app.post('/gameStats', async (req, res) => {
             username, stats
         }
     });
-    await queryDb({
+    if (username != "N/A") await queryDb({
         type: "updateStats",
         data: {
             username, stats
