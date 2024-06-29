@@ -139,11 +139,10 @@ async function queryDb(query) {
             else return { error: true };
         }
         case "resumeSession": {
-            let res = await collections.sessions.find({
-                cookie: data.cookie
-            }).toArray();
-            if (res.length) return { error: false, username: res[0].username, perms: res[0].perms || 0 };
-            else return { error: true };
+            let res = await collections.sessions.findOne({ cookie: data.cookie });
+            if (!res) return { error: true };
+            let player = await collections.players.findOne({ username: res.username });
+            return { error: false, username: res.username, perms: player.perms || 0 };
         }
         case "insertGame": {
             data.stats.username = data.username;
