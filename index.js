@@ -124,7 +124,7 @@ async function queryDb(query) {
                     { passwordHash: data.passwordHash }
                 ]
             }).toArray();
-            if (resp.length) return { error: false, username: resp[0].username };
+            if (resp.length) return { error: false, username: resp[0].username, perms: resp[0].perms || 0 };
             else return { error: true, desc: "The provided username and password does not exist in our database.", code: 0 };
         }
         case "setSession": {
@@ -142,7 +142,7 @@ async function queryDb(query) {
             let res = await collections.sessions.find({
                 cookie: data.cookie
             }).toArray();
-            if (res.length) return { error: false, username: res[0].username };
+            if (res.length) return { error: false, username: res[0].username, perms: res[0].perms || 0 };
             else return { error: true };
         }
         case "insertGame": {
