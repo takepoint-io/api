@@ -44,11 +44,27 @@ const countryToRegion = {
     "AU": "Australia"
 };
 let servers = [];
-//TODO: In the future, we select highscores and fun facts from database
-let funFacts = [
-    ["Bug fixes", "1,000"],
-    ["Sample text", "1"]
+let funFactTypes = [
+    "Kills", "Damage dealt",
+    "Kills with pistol", "Kills with assault",
+    "Kills with sniper", "Kills with shotgun",
+    "Score gained", "Hours played"
 ];
+let funFacts = {};
+for (let name of funFactTypes) {
+    funFacts[name] = {
+        name: name,
+        internalValue: 0,
+        incrementValue: (amount) => {
+            funFacts[name].internalValue += amount;
+        },
+        get value() {
+            return funFacts[name].internalValue.toLocaleString(undefined, {
+                maximumFractionDigits: 2
+            });
+        }
+    }
+}
 let leaderboard = [];
 let leaderboardDate = getCurrentDate(-5);
 
@@ -62,9 +78,10 @@ function getCurrentDate(offset) {
 }
 
 function createGameState() {
-    let funFact = funFacts[Math.floor(Math.random() * funFacts.length)];
+    let keys = Object.keys(funFacts);
+    let funFact = funFacts[keys[Math.floor(Math.random() * keys.length)]];
     let gameState = {
-        [funFact[0]]: funFact[1]
+        [funFact.name]: funFact.value
     };
     for (let i = 0; i < leaderboard.length; i++) {
         gameState[i.toString()] = leaderboard[i];
@@ -160,11 +177,13 @@ async function queryDb(query) {
             let weaponList = ["pistol", "assault", "sniper", "shotgun"];
             let perkList = ["barrier", "health", "gas", "frag", "turret", "sd"];
             player.score += stats.score;
+            funFacts['Score gained'].incrementValue(stats.score);
             player.timePlayed += stats.timeAlive;
             player.spm = parseFloat((player.score / (player.timePlayed / 1000 / 60)).toFixed(2))
             player.pointsTaken += stats.pointsTaken;
             player.pointsNeutralized += stats.pointsNeutralized;
             player.kills += stats.kills;
+            funFacts['Kills'].incrementValue(stats.kills);
             if (stats.kills > player.killstreak) player.killstreak = stats.kills;
             player.deaths++;
             player.kdr = parseFloat((player.kills / player.deaths).toFixed(2));
@@ -172,6 +191,7 @@ async function queryDb(query) {
             player.shotsHit += stats.bulletsHit;
             player.accuracy = parseFloat((100 * player.shotsHit / player.shotsFired).toFixed(2));
             player.damageDealt += stats.damageDealt;
+            funFacts['Damage dealt'].incrementValue(stats.damageDealt);
             player.distanceCovered += Math.round(stats.distanceCovered);
             player.doubleKills += stats.doubleKills;
             player.tripleKills += stats.tripleKills;
@@ -179,19 +199,23 @@ async function queryDb(query) {
             let pistol = player.weapons.pistol;
             let pistolUpdates = stats.weapons[0];
             pistol.kills += pistolUpdates.kills;
+            funFacts['Kills with pistol'].incrementValue(pistolUpdates.kills);
             pistol.shotsFired += pistolUpdates.bulletsFired;
             pistol.shotsHit += pistolUpdates.bulletsHit;
             pistol.damageDealt += pistolUpdates.damageDealt;
             if (stats.weaponChosenID) {;
-                let weaponStats = player.weapons[weaponList[stats.weaponChosenID]];
                 let id = stats.weaponChosenID;
+                let weaponName = weaponList[id];
+                let weaponStats = player.weapons[weaponName];
                 weaponStats.kills += stats.weapons[id].kills;
+                funFacts['Kills with ' + weaponName].incrementValue(stats.weapons[id].kills);
                 weaponStats.shotsFired += stats.weapons[id].bulletsFired;
                 weaponStats.shotsHit += stats.weapons[id].bulletsHit;
                 weaponStats.accuracy = parseFloat((100 * weaponStats.shotsHit / weaponStats.shotsFired).toFixed(2));
                 weaponStats.damageDealt += stats.weapons[id].damageDealt++;
                 weaponStats.selected++;
                 weaponStats.timePlayed += Date.now() - stats.weaponChosenTime;
+                funFacts['Hours played'].incrementValue((Date.now() - stats.weaponChosenTime) / (60 * 60 * 1000));
                 pistol.timePlayed += stats.weaponChosenTime - stats.spawnTime;
             } else {
                 pistol.timePlayed += Date.now() - stats.spawnTime;
@@ -408,6 +432,7 @@ const loops = {
     }, 10000),
     resetDailyLB: setInterval(() => {
         if (getCurrentDate(-5) != leaderboardDate) {
+
             leaderboard = [];
             leaderboardDate = getCurrentDate();
         }
