@@ -51,22 +51,26 @@ let funFactTypes = [
     "Score gained", "Hours played"
 ];
 let funFacts = {};
-for (let name of funFactTypes) {
-    funFacts[name] = {
-        name: name,
-        internalValue: 0,
-        incrementValue: (amount) => {
-            funFacts[name].internalValue += amount;
-        },
-        get value() {
-            return funFacts[name].internalValue.toLocaleString(undefined, {
-                maximumFractionDigits: 2
-            });
+initFunFacts();
+let leaderboard = [];
+let leaderboardDate = getCurrentDate(-5);
+
+function initFunFacts() {
+    for (let name of funFactTypes) {
+        funFacts[name] = {
+            name: name,
+            internalValue: 0,
+            incrementValue: (amount) => {
+                funFacts[name].internalValue += amount;
+            },
+            get value() {
+                return funFacts[name].internalValue.toLocaleString(undefined, {
+                    maximumFractionDigits: 2
+                });
+            }
         }
     }
 }
-let leaderboard = [];
-let leaderboardDate = getCurrentDate(-5);
 
 function getCurrentDate(offset) {
     let d = new Date();
@@ -432,7 +436,7 @@ const loops = {
     }, 10000),
     resetDailyLB: setInterval(() => {
         if (getCurrentDate(-5) != leaderboardDate) {
-
+            initFunFacts();
             leaderboard = [];
             leaderboardDate = getCurrentDate();
         }
