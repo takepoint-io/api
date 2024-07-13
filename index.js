@@ -219,11 +219,13 @@ async function queryDb(query) {
                 weaponStats.damageDealt += stats.weapons[id].damageDealt++;
                 weaponStats.selected++;
                 weaponStats.timePlayed += Date.now() - stats.weaponChosenTime;
-                funFacts['Hours played'].incrementValue((Date.now() - stats.weaponChosenTime) / (60 * 60 * 1000));
+                if (!weaponStats.attachments) weaponStats.attachments = { 1: 0, 2: 0 };
+                if (stats.attachmentID) weaponStats.attachments[stats.attachmentID]++;
                 pistol.timePlayed += stats.weaponChosenTime - stats.spawnTime;
             } else {
                 pistol.timePlayed += Date.now() - stats.spawnTime;
             }
+            funFacts['Hours played'].incrementValue((Date.now() - stats.spawnTime) / (60 * 60 * 1000));
             player.upgrades.speed += stats.upgrades.speed;
             player.upgrades.reload += stats.upgrades.reload;
             player.upgrades.mags += stats.upgrades.mags;
@@ -235,6 +237,13 @@ async function queryDb(query) {
                 { username: username },
                 player
             );
+            return;
+        }
+        case "deleteOldGames": {
+            let maxDays = data.olderThan;
+            let oldestTs = Date.now() - maxDays * (24 * 60 * 60 * 1000);
+            await collections.games.deleteMany({ spawnTime: { $lt: oldestTs } });
+            return;
         }
     }
 }
@@ -439,6 +448,12 @@ const loops = {
             initFunFacts();
             leaderboard = [];
             leaderboardDate = getCurrentDate();
+            queryDb({
+                type: "deleteOldGames",
+                data: {
+                    olderThan: 7
+                }
+            });
         }
     }, 5000)
 };
