@@ -114,12 +114,12 @@ async function queryDb(query) {
     switch (query.type) {
         case "register": {
             let resp = await collections.players.find({ 
-                $or: [{ usernameLower: data.username.toLowerCase() }, { email: data.email }]
+                $or: [{ usernameLower: data.username.toLowerCase() }, { email: data.email.toLowerCase() }]
             }).toArray();
             if (resp.length > 0) {
                 if (resp[0].usernameLower == data.username.toLowerCase()) {
                     return { error: true, desc: "A player with that username already exists!", code: 1 };
-                } else if (resp[0].email == data.email) {
+                } else if (resp[0].email == data.email.toLowerCase()) {
                     return { error: true, desc: "A player with that email already exists!", code: 2 };
                 }
                 return { error: true, desc: "Generic" };
@@ -135,14 +135,21 @@ async function queryDb(query) {
                     return { error: true, desc: 'Username may include profanity. Check the Discord for help.', code: 1 };
                 }
             }
-            await collections.players.insertOne(playerTemplate(data));
+            let hash = sha256(data.password);
+            let player = playerTemplate({
+                username: data.username,
+                email: data.email,
+                passwordHash: hash
+            });
+            await collections.players.insertOne(playerTemplate(player));
             return { error: false, username: data.username };
         }
         case "login": {
+            let hash = sha256(data.password);
             let resp = await collections.players.find({
                 $and: [
                     { $or: [ { usernameLower: data.usernameEmail.toLowerCase() }, { email: data.usernameEmail.toLowerCase() } ] }, 
-                    { passwordHash: data.passwordHash }
+                    { passwordHash: hash }
                 ]
             }).toArray();
             if (resp.length) return { error: false, username: resp[0].username, perms: resp[0].perms || 0 };
@@ -372,7 +379,7 @@ app.post('/auth/*', async (req, res) => {
             data: {
                 username: body.data.username,
                 email: body.data.email,
-                passwordHash: sha256(body.data.password)
+                password: body.data.password
             }
         });
         if (!resp.error) {
@@ -389,7 +396,7 @@ app.post('/auth/*', async (req, res) => {
             type: "login", 
             data: {
                 usernameEmail: body.data.usernameEmail,
-                passwordHash: sha256(body.data.password)
+                password: body.data.password
             }
         });
         if (!resp.error) {
