@@ -113,21 +113,21 @@ async function queryDb(query) {
     let data = query.data;
     switch (query.type) {
         case "register": {
-            let resp = await collections.players.find({ 
+            let resp = await collections.players.findOne({ 
                 $or: [{ usernameLower: data.username.toLowerCase() }, { email: data.email.toLowerCase() }]
-            }).toArray();
-            if (resp.length > 0) {
-                if (resp[0].usernameLower == data.username.toLowerCase()) {
+            });
+            if (resp) {
+                if (resp.usernameLower == data.username.toLowerCase()) {
                     return { error: true, desc: "A player with that username already exists!", code: 1 };
-                } else if (resp[0].email == data.email.toLowerCase()) {
+                } else if (resp.email == data.email.toLowerCase()) {
                     return { error: true, desc: "A player with that email already exists!", code: 2 };
                 }
                 return { error: true, desc: "Generic" };
             }
-            let isReserved = await collections.reservedUsers.find({
+            let isReserved = await collections.reservedUsers.findOne({
                 usernameLower: data.username.toLowerCase()
-            }).toArray();
-            if (isReserved.length > 0) {
+            });
+            if (isReserved) {
                 return { error: true, desc: 'That username is reserved as it belongs to a notable player. Check the Discord for help.', code: 1 };
             }
             for (word of badWords) {
@@ -146,13 +146,13 @@ async function queryDb(query) {
         }
         case "login": {
             let hash = sha256(data.password);
-            let resp = await collections.players.find({
+            let resp = await collections.players.findOne({
                 $and: [
                     { $or: [ { usernameLower: data.usernameEmail.toLowerCase() }, { email: data.usernameEmail.toLowerCase() } ] }, 
                     { passwordHash: hash }
                 ]
-            }).toArray();
-            if (resp.length) return { error: false, username: resp[0].username, perms: resp[0].perms || 0 };
+            });
+            if (resp) return { error: false, username: resp.username, perms: resp.perms || 0 };
             else return { error: true, desc: "The provided username and password does not exist in our database.", code: 0 };
         }
         case "setSession": {
@@ -180,11 +180,10 @@ async function queryDb(query) {
         case "updateStats": {
             let stats = data.stats;
             let username = data.username;
-            let player = await collections.players.find({
+            let player = await collections.players.findOne({
                 usernameLower: username.toLowerCase()
-            }).toArray();
-            if (!player.length) return;
-            player = player[0];
+            });
+            if (!player) return;
             let weaponList = ["pistol", "assault", "sniper", "shotgun"];
             let perkList = ["barrier", "health", "gas", "frag", "turret", "sd"];
             player.score += stats.score;
