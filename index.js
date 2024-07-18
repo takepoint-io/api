@@ -447,7 +447,7 @@ const loops = {
         if (getCurrentDate(-5) != leaderboardDate) {
             initFunFacts();
             leaderboard = [];
-            leaderboardDate = getCurrentDate();
+            leaderboardDate = getCurrentDate(-5);
             queryDb({
                 type: "deleteOldGames",
                 data: {
