@@ -3,7 +3,7 @@ const axios = require('axios');
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const cors = require('cors');
 const express = require('express');
-const sha256 = require('js-sha256').sha256;
+const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const Server = require("./server");
 const Cloudflare = require('./cloudflare');
@@ -117,12 +117,22 @@ async function queryDb(query) {
                 $or: [{ usernameLower: data.username.toLowerCase() }, { email: data.email.toLowerCase() }]
             });
             if (resp) {
-                if (resp.usernameLower == data.username.toLowerCase()) {
-                    return { error: true, desc: "A player with that username already exists!", code: 1 };
-                } else if (resp.email == data.email.toLowerCase()) {
-                    return { error: true, desc: "A player with that email already exists!", code: 2 };
+                if (resp.allowReregister && resp.usernameLower == data.username.toLowerCase() && resp.email == data.email.toLowerCase()) {
+                    let hash = await bcrypt.hash(data.password, 8);
+                    resp.passwordHash = hash;
+                    resp.email = data.email.toLowerCase();
+                    resp.allowReregister = false;
+                    await collections.players.replaceOne({ username: resp.username }, resp);
+                    return { error: false, username: resp.username };
                 }
-                return { error: true, desc: "Generic" };
+                else {
+                    if (resp.usernameLower == data.username.toLowerCase()) {
+                        return { error: true, desc: "A player with that username already exists!", code: 1 };
+                    } else if (resp.email == data.email.toLowerCase()) {
+                        return { error: true, desc: "A player with that email already exists!", code: 2 };
+                    }
+                    return { error: true, desc: "Generic" };
+                }
             }
             let isReserved = await collections.reservedUsers.findOne({
                 usernameLower: data.username.toLowerCase()
@@ -135,24 +145,23 @@ async function queryDb(query) {
                     return { error: true, desc: 'Username may include profanity. Check the Discord for help.', code: 1 };
                 }
             }
-            let hash = sha256(data.password);
+            let hash = bcrypt.hash(data.password, 8);
             let player = playerTemplate({
                 username: data.username,
-                email: data.email,
+                email: data.email.toLowerCase(),
                 passwordHash: hash
             });
             await collections.players.insertOne(playerTemplate(player));
             return { error: false, username: data.username };
         }
         case "login": {
-            let hash = sha256(data.password);
-            let resp = await collections.players.findOne({
-                $and: [
-                    { $or: [ { usernameLower: data.usernameEmail.toLowerCase() }, { email: data.usernameEmail.toLowerCase() } ] }, 
-                    { passwordHash: hash }
-                ]
+            let player = await collections.players.findOne({
+                $or: [ { usernameLower: data.usernameEmail.toLowerCase() }, { email: data.usernameEmail.toLowerCase() } ]
             });
-            if (resp) return { error: false, username: resp.username, perms: resp.perms || 0 };
+            console.log(player.passwordHash)
+            if (player && bcrypt.compareSync(data.password, player.passwordHash)) {
+                return { error: false, username: player.username, perms: player.perms || 0 };
+            }
             else return { error: true, desc: "The provided username and password does not exist in our database.", code: 0 };
         }
         case "setSession": {
