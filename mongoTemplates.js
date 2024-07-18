@@ -72,6 +72,7 @@ const templates = {
                 turret: 0,
                 sd: 0
             },
+            badges: [],
             usernameLower: data.username.toLowerCase(),
             username: data.username,
             email: data.email,
