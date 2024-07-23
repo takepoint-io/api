@@ -108,7 +108,7 @@ const queries = {
         await collections.games.insertOne(stats);
     },
 
-    async updateStats(username, stats) {
+    async updateStats(username, stats, funFacts) {
         let player = await collections.players.findOne({ usernameLower: username.toLowerCase() });
         if (!player) return;
 

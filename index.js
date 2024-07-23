@@ -181,7 +181,7 @@ app.post('/gameStats', async (req, res) => {
         }
     }
     await db.insertGame(username, stats);
-    if (username != "N/A") await db.updateStats(username, stats);
+    if (username != "N/A") await db.updateStats(username, stats, funFacts);
     res.status(200);
     res.end();
 });
