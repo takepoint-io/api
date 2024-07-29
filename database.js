@@ -148,18 +148,21 @@ const queries = {
             let id = stats.weaponChosenID;
             let weaponName = weaponList[id];
             let weaponStats = player.weapons[weaponName];
-            weaponStats.kills += stats.weapons[id].kills;
-            funFacts['Kills with ' + weaponName].incrementValue(stats.weapons[id].kills);
-            weaponStats.shotsFired += stats.weapons[id].bulletsFired;
-            weaponStats.shotsHit += stats.weapons[id].bulletsHit;
-            weaponStats.accuracy = parseFloat((100 * weaponStats.shotsHit / weaponStats.shotsFired).toFixed(2));
-            weaponStats.damageDealt += stats.weapons[id].damageDealt;
-            weaponStats.selected++;
-            weaponStats.timePlayed += Date.now() - stats.weaponChosenTime;
-            
-            if (!weaponStats.attachments) weaponStats.attachments = { 1: 0, 2: 0 };
-            if (stats.attachmentID) weaponStats.attachments[stats.attachmentID]++;
-            pistol.timePlayed += stats.weaponChosenTime - stats.spawnTime;
+            //sometimes weaponStats is undefined, causing a crash...
+            if (weaponStats) {
+                weaponStats.kills += stats.weapons[id].kills;
+                funFacts['Kills with ' + weaponName].incrementValue(stats.weapons[id].kills);
+                weaponStats.shotsFired += stats.weapons[id].bulletsFired;
+                weaponStats.shotsHit += stats.weapons[id].bulletsHit;
+                weaponStats.accuracy = parseFloat((100 * weaponStats.shotsHit / weaponStats.shotsFired).toFixed(2));
+                weaponStats.damageDealt += stats.weapons[id].damageDealt;
+                weaponStats.selected++;
+                weaponStats.timePlayed += Date.now() - stats.weaponChosenTime;
+                
+                if (!weaponStats.attachments) weaponStats.attachments = { 1: 0, 2: 0 };
+                if (stats.attachmentID) weaponStats.attachments[stats.attachmentID]++;
+                pistol.timePlayed += stats.weaponChosenTime - stats.spawnTime;
+            }
         } else {
             pistol.timePlayed += Date.now() - stats.spawnTime;
         }
