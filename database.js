@@ -22,7 +22,7 @@ const collections = {
 };
 
 const queries = {
-    async register(username, password, email) {
+    async register(username, email, password) {
         let usernameLower = username.toLowerCase();
         let emailLower = email.toLowerCase();
         let resp = await collections.players.findOne({ 
@@ -30,7 +30,7 @@ const queries = {
         });
 
         if (resp) {
-            if (resp.allowReregister && resp.usernameLower === usernameLower && resp.email === emailLower) {
+            if (resp.allowReregister && resp.usernameLower === usernameLower) {
                 let hash = await bcrypt.hash(password, 8);
                 resp.passwordHash = hash;
                 resp.email = emailLower;
