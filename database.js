@@ -2,6 +2,7 @@ require('dotenv').config();
 const bcrypt = require('bcrypt');
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const { playerTemplate } = require('./mongoTemplates');
+const badges = require('./badges');
 const badWords = require('./badwords');
 
 const mongoDB = new MongoClient(process.env.mongoConnectionStr, {
@@ -177,6 +178,12 @@ const queries = {
         if (stats.perkID) player.perks[perkList[stats.perkID - 1]]++;
         
         player.lastActive = Date.now();
+
+        let badgesEarned = badges.allEligible(stats);
+        for (let badge of badgesEarned) {
+            player.badges.push(badge);
+        }
+
         await collections.players.replaceOne({ username }, player);
     },
 
