@@ -96,6 +96,13 @@ async function getServerAttrs(ipv4) {
     let resp = await axios.get(`http://ip-api.com/json/${ipv4}`);
     let { data } = resp;
     let accessURL = ipv4;
+    if (data.status == "fail") {
+        return {
+            region: "Unknown",
+            city: "Unknown",
+            url: accessURL
+        };
+    }
     if (CFWorker.status == 1) {
         let test = await CFWorker.getSubdomain(ipv4);
         if (test != "") accessURL = test;
@@ -138,10 +145,23 @@ app.post('/register_instance', async (req, res) => {
         if (!serverInfo.override) {
             let sourceIP = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
             if (sourceIP.includes(":")) {
-                let resp = await axios.get("https://api.ipify.org");
-                sourceIP = resp.data;
+                try {
+                    let resp = await axios.get("https://api.ipify.org");
+                    sourceIP = resp.data;
+                } catch (e) {
+                    sourceIP = "127.0.0.1";
+                }
             }
-            let attrs = await getServerAttrs(sourceIP);
+            let attrs; 
+            try {
+                attrs = await getServerAttrs(sourceIP);
+            } catch (e) {
+                attrs =  {
+                    region: "Unknown",
+                    city: "Unknown",
+                    url: sourceIP
+                };
+            }
             serverInfo.data.region = attrs.region;
             serverInfo.data.city = attrs.city;
             serverInfo.data.url = attrs.url;
