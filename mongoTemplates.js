@@ -76,7 +76,10 @@ const templates = {
             usernameLower: data.username.toLowerCase(),
             username: data.username,
             email: data.email,
-            passwordHash: data.passwordHash
+            passwordHash: data.passwordHash,
+            verified: false,
+            allowReregister: false,
+            perms: 0
         };
     }
 }
