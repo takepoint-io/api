@@ -117,6 +117,10 @@ async function getServerAttrs(ipv4) {
 
 app.use(express.json());
 app.use(cors({ origin: "*" }));
+app.use((err, req, res, next) => {
+    res.status(500);
+    res.end(); 
+});
 
 app.listen(port, async function () {
     console.log(`API listening on ${port}`);
